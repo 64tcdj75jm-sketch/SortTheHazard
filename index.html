@@ -47,6 +47,22 @@ footer{text-align:center;color:#222;font-size:.82rem;padding:18px;background:rgb
 @media(max-width:760px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.zones{grid-template-columns:1fr}.zone{min-height:150px}main{padding:12px}}
 @media(min-width:1000px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}}
 
+/* Large results popup */
+.results-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(10,12,16,.78);backdrop-filter:blur(4px)}
+.results-overlay.show{display:flex}
+.results-modal{position:relative;width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:24px;padding:clamp(24px,5vw,48px);text-align:center;box-shadow:0 24px 80px #0008;border:5px solid var(--yellow)}
+.results-modal h2{margin:0 0 8px;font-size:clamp(2rem,6vw,3.2rem);line-height:1.05;color:var(--red)}
+.results-subtitle{font-size:1.1rem;color:#333;margin:0 0 22px}
+.results-percent{font-size:clamp(3.5rem,12vw,6rem);font-weight:900;line-height:1;color:var(--red);margin:12px 0}
+.results-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}
+.results-stat{background:#f3f5f7;border-radius:14px;padding:16px 10px}
+.results-stat strong{display:block;font-size:clamp(1.5rem,5vw,2.2rem);color:#222}
+.results-stat span{font-size:.95rem;color:#444}
+.results-message{font-size:1.1rem;font-weight:700;line-height:1.5;margin:18px 0 24px}
+.results-modal .primary{font-size:1.1rem;padding:15px 24px;min-width:180px}
+.results-close{position:absolute;right:12px;top:10px;border:0;background:transparent;color:#333;font-size:2rem;padding:4px 10px;line-height:1}
+@media(max-width:420px){.results-stats{gap:8px}.results-stat{padding:12px 6px}.results-modal{border-radius:18px}}
+
 .zone h2{font-weight:900;line-height:1.25}
 .zone.fix h2{color:#105b31}
 .zone.report h2{color:#9e1026}
@@ -90,6 +106,20 @@ footer{text-align:center;color:#222;font-size:.82rem;padding:18px;background:rgb
     <button class="primary" id="check">Finish &amp; see result</button>
   </div>
 </main>
+<div class="results-overlay" id="resultsOverlay" role="dialog" aria-modal="true" aria-labelledby="resultsTitle">
+  <div class="results-modal">
+    <button class="results-close" id="closeResults" aria-label="Close results">×</button>
+    <h2 id="resultsTitle">Your Results</h2>
+    <p class="results-subtitle">FIX NOW or REPORT?</p>
+    <div class="results-percent" id="resultsPercent">0%</div>
+    <div class="results-stats">
+      <div class="results-stat"><strong id="resultsCorrect">0 / 9</strong><span>Correct answers</span></div>
+      <div class="results-stat"><strong id="resultsPoints">0 / 90</strong><span>Points earned</span></div>
+    </div>
+    <p class="results-message" id="resultsMessage"></p>
+    <button class="primary" id="closeResultsButton">Back to game</button>
+  </div>
+</div>
 <footer>Brought To You By the NSW/ACT Culture Team</footer>
 <script>
 const hazards = [
@@ -139,7 +169,6 @@ function place(id,cat){
  feedback.className='feedback '+(correct?'good':'bad');
  feedback.textContent=(correct?'Correct! ':'Not quite. ')+h.why;
  selected=null;update();renderCards();
- if(Object.keys(answers).length===hazards.length)finish();
 }
 document.querySelectorAll('.zone').forEach(zone=>{
  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('over')});
@@ -151,10 +180,24 @@ document.querySelectorAll('.zone').forEach(zone=>{
 function update(){const n=Object.keys(answers).length;document.getElementById('score').textContent=`${n} / ${hazards.length} sorted`;document.getElementById('progress').style.width=`${n/hazards.length*100}%`;document.getElementById('points').textContent=`Score: ${points}`;}
 function finish(){
  const correct=hazards.filter(h=>answers[h.id]===h.cat).length;
- feedback.className='feedback '+(correct===hazards.length?'good':'bad');
- feedback.textContent=`Game complete! You got ${correct} out of ${hazards.length} correct (${Math.round(correct/hazards.length*100)}%). ${correct===hazards.length?'Excellent hazard awareness!':'Review the explanations on the sorted cards, then reset and try again.'}`;
+ const percent=Math.round(correct/hazards.length*100);
+ document.getElementById('resultsPercent').textContent=percent+'%';
+ document.getElementById('resultsCorrect').textContent=`${correct} / ${hazards.length}`;
+ document.getElementById('resultsPoints').textContent=`${points} / ${hazards.length*10}`;
+ document.getElementById('resultsMessage').textContent=correct===hazards.length
+  ?'Excellent hazard awareness! You got every hazard in the right category.'
+  :percent>=70
+   ?'Good effort! Review the explanations on the sorted cards to strengthen your hazard awareness.'
+   :'Keep practising! Review the explanations on the sorted cards, then reset and try again.';
+ document.getElementById('resultsOverlay').classList.add('show');
+ document.getElementById('closeResultsButton').focus();
 }
-document.getElementById('check').addEventListener('click',()=>{if(Object.keys(answers).length<hazards.length){feedback.className='feedback bad';feedback.textContent=`You have sorted ${Object.keys(answers).length} of ${hazards.length}. Sort the rest, or finish now to see your current result.`;return;}finish()});
+function closeResults(){document.getElementById('resultsOverlay').classList.remove('show')}
+document.getElementById('closeResults').addEventListener('click',closeResults);
+document.getElementById('closeResultsButton').addEventListener('click',closeResults);
+document.getElementById('resultsOverlay').addEventListener('click',e=>{if(e.target.id==='resultsOverlay')closeResults()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeResults()});
+document.getElementById('check').addEventListener('click',()=>{if(Object.keys(answers).length<hazards.length){feedback.className='feedback bad';feedback.textContent=`You have sorted ${Object.keys(answers).length} of ${hazards.length}. Sort all ${hazards.length} hazards before viewing your final results.`;return;}finish()});
 document.getElementById('reset').addEventListener('click',()=>{
  selected=null;answers={};points=0;document.querySelectorAll('.dropped').forEach(x=>x.innerHTML='');document.querySelectorAll('.drop-hint').forEach(x=>x.style.display='block');feedback.className='feedback';feedback.textContent='Ready? Sort all 9 hazards to see your result.';shuffleHazards();update();renderCards();
 });
